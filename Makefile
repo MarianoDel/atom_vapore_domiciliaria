@@ -106,9 +106,9 @@ SRC += ./src/stm32f0xx_it.c
 SRC += ./src/gpio.c
 SRC += ./src/tim.c
 SRC += ./src/hard.c
-SRC += ./src/adc.c
-SRC += ./src/dsp.c
-SRC += ./src/uart.c
+# SRC += ./src/adc.c
+# SRC += ./src/dsp.c
+# SRC += ./src/uart.c
 ## System Support
 #SRC += ./cmsis_boot/system_stm32f0xx.c
 #SRC += $(DISCOVERY)/stm32f0_discovery.c

@@ -67,23 +67,23 @@ void GPIO_Config (void)
 		GPIOA_CLK_ON;
 
 	temp = GPIOA->MODER;	//2 bits por pin
-	temp &= 0xFFC33000;		//salidas PA2 PA3 PA4 entradas PA0 (analog) PA1 PA5 (analog) PA7 output
-	temp |= 0x00084D53;		//PA1 PA9 alternative PA10 in digital
+	temp &= 0xFFFFFC03;		//salidas PA1 PA2 out; PA3 input PA4 output
+	temp |= 0x00000114;
 	GPIOA->MODER = temp;
 
 	temp = GPIOA->OTYPER;	//1 bit por pin
-	temp &= 0xFFFFFFE3;
-	temp |= 0x00000000;		//PA2 PA3 PA4 push pull
+	temp &= 0xFFFFFFE9;
+	temp |= 0x00000000;		//PA1 PA2 PA4 push pull
 	GPIOA->OTYPER = temp;
 
 	temp = GPIOA->OSPEEDR;	//2 bits por pin
-	temp &= 0xFFFFFC0F;
+	temp &= 0xFFFFFCC3;		//PA1 PA2 PA4 low speed
 	temp |= 0x00000000;		//low speed
 	GPIOA->OSPEEDR = temp;
 
-	temp = GPIOA->PUPDR;	//2 bits por pin
-	temp &= 0xFFFFFFF3;
-	temp |= 0x00000004;		//pull up PA1
+	temp = GPIOA->PUPDR;		//2 bits por pin
+	temp &= 0xFFFFFF3F;
+	temp |= 0x00000040;		//pull up PA3
 	GPIOA->PUPDR = temp;
 
 #endif
