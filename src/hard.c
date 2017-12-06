@@ -11,6 +11,7 @@
 /* Externals variables ---------------------------------------------------------*/
 extern unsigned short sw_filter;
 extern volatile unsigned short led_timer;
+unsigned char blinks_rounds;
 
 
 /* Global variables ------------------------------------------------------------*/
@@ -83,6 +84,7 @@ void UpdateLed (unsigned char Pote)
 			if (!led_timer)
 			{
 				led_state = START_BLINKING;
+				blinks_rounds++;
 			}
 			break;
 

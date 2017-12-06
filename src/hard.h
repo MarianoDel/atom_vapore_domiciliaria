@@ -74,19 +74,22 @@
 
 
 #define SW_ROOF	200
-#define SW_THRESH	180
+#define SW_THRESH	150
 
 
 //ESTADOS DEL PROGRAMA PRINCIPAL
 typedef enum
 {
-	ZERO_BIPS = 0,
-	ONE_BIP,	//1
-	TWO_BIPS,	//2
-	THREE_BIPS,	//3
-	FOUR_BIPS,	//4
-	FIVE_BIPS,	//5
-	SIX_BIPS	//6
+	main_init = 0,
+	waiting_activate_or_config,
+	alarm_on,
+	wait_configuration,
+	configuration,
+	to_save,
+	saved,
+	saved_error,
+	wait_shutdown
+
 } main_state_t;
 
 
@@ -99,6 +102,8 @@ typedef enum
 
 /* Module Functions ------------------------------------------------------------*/
 void UpdateLed (unsigned char);
+unsigned char Switch (void);
+void ResetLed (void);
 
 
 #endif /* HARD_H_ */

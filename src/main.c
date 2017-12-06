@@ -20,6 +20,7 @@
 #include "core_cm0.h"
 #include "hard.h"
 #include "tim.h"
+#include "flash_program.h"
 
 // #include <stdio.h>
 
@@ -30,8 +31,12 @@ volatile unsigned short led_timer = 0;
 volatile unsigned short	sw_filter = 0;
 volatile unsigned char delay_timer = 0;
 
-//--- VARIABLES GLOBALES ---//
+unsigned char blinks_rounds = 0;
 
+//--- VARIABLES GLOBALES ---//
+volatile unsigned short	timer_standby = 0;
+
+parameters_typedef params;
 
 //--- FUNCIONES DEL MODULO ---//
 void TimingDelay_Decrement(void);
@@ -46,8 +51,12 @@ void TimingDelay_Decrement(void);
 int main(void)
 {
 	unsigned char i = 0;
-	unsigned char led_state = 0;
-	unsigned char blink = 0;
+	unsigned char last_switch = 0;
+	unsigned char delay_timer_conf = 0;
+	unsigned char save_conf = 0;
+	unsigned char res = 0;
+
+	main_state_t main_state = main_init;
 
 
 	//!< At this stage the microcontroller clock setting is already configured,
@@ -95,67 +104,203 @@ int main(void)
 
 	// TIM16Enable ();
 
-	//Inicia prueba LED
-	while (1)
+	// //Inicia prueba LED
+	// while (1)
+	// {
+	// 	// LED_ON;
+	//    // Wait_ms(1000);
+	//    // LED_OFF;
+	// 	// Wait_ms(1000);
+	//
+	// 	if (LED)
+	// 		LED_OFF;
+	// 	else
+	// 		LED_ON;
+	//
+	// 	Wait_ms(1000);
+	// }
+	// //FIN prueba LED
+
+	// //Inicia prueba LED
+	// while (1)
+	// {
+	// 	if (SW1)
+	// 	{
+	// 		LED_ON;
+	// 		ACT_12V_ON;
+	// 		BOTON1_ON;
+	// 	}
+	// 	else
+	// 	{
+	// 		LED_OFF;
+	// 		ACT_12V_OFF;
+	// 		BOTON1_OFF;
+	// 	}
+	//
+	//
+	// 	// if (LED)
+	// 	// 	LED_OFF;
+	// 	// else
+	// 	// 	LED_ON;
+	// 	//
+	// 	// Wait_ms(1000);
+	// }
+	// //FIN prueba LED
+
+	//Comienza Programa Principal
+
+	//cargo las variables desde la memoria
+	params.secs = ((parameters_typedef *) (unsigned char *) PAGE15)->secs;
+
+	if ((params.secs < 1) || (params.secs > 10))
 	{
-		LED_ON;
-	   Wait_ms(1000);
-	   LED_OFF;
-		Wait_ms(1000);
+		//debe estar vacia la memoria
+		delay_timer_conf = 5;
 	}
-	//FIN prueba LED
+	else
+		delay_timer_conf = params.secs;
 
-//    //para pruebas
-//    Wait_ms(9000);
-//    while (1)
-//    {
-//    	if (!timer_relay)
-//    	{
-//    		if (RELAY)
-//    			RELAY_OFF;
-//    		else
-//    			RELAY_ON;
-//
-//    		timer_relay = 10000;
-//    	}
-//    }
-//    //para pruebas
+
+	ACT_12V_OFF;
+
 
 	while (1)
 	{
+		switch (main_state)
+		{
+			case main_init:
+				delay_timer = delay_timer_conf;
+				main_state++;
+				LED_ON;
+				timer_standby = 300;
+				break;
+
+			case waiting_activate_or_config:
+				if (!timer_standby)
+					LED_OFF;
+
+				if (!delay_timer)
+				{
+					//debo activar, presiono boton1
+					BOTON1_ON;
+					ACT_12V_ON;
+					timer_standby = 1000;
+					main_state = alarm_on;
+				}
+
+				if (Switch())	//voy a configuracion
+				{
+					main_state = wait_configuration;
+					LED_ON;
+					BOTON1_OFF;
+					ACT_12V_OFF;
+				}
+				break;
+
+			case alarm_on:
+				if (!timer_standby)
+				{
+					BOTON1_OFF;		//libero boton1
+					main_state = wait_shutdown;
+				}
+
+				if (Switch())	//voy a configuracion
+				{
+					main_state = wait_configuration;
+					LED_ON;
+					BOTON1_OFF;
+					ACT_12V_OFF;
+				}
+				break;
+
+			case wait_shutdown:
+				//me quedo esperando que se apague la placa o  configuracion
+
+				if (Switch())	//voy a configuracion
+				{
+					main_state = wait_configuration;
+					LED_ON;
+					BOTON1_OFF;
+					ACT_12V_OFF;
+				}
+				break;
+
+			case wait_configuration:
+				if (!Switch())
+				{
+					LED_OFF;
+					last_switch = 0;
+					main_state = configuration;
+					blinks_rounds = 0;
+				}
+				break;
+
+			case configuration:
+				UpdateLed (delay_timer_conf);
+
+				if ((Switch()) && (last_switch == 0))
+				{
+					if (delay_timer_conf < 10)
+						delay_timer_conf++;
+					else
+						delay_timer_conf = 1;
+
+					last_switch = 1;
+					blinks_rounds = 0;
+					save_conf = 1;
+				}
+
+				if (!Switch())
+					last_switch = 0;
+
+				//me fijo si tengo que guardar
+				if ((save_conf) && (blinks_rounds > 4))
+				{
+					main_state = to_save;
+					params.secs = delay_timer_conf;
+				}
+				break;
+
+			case to_save:
+				res = WriteConfigurations(&params);
+				if (res == PASSED)
+					main_state = saved;
+				else
+					main_state = saved_error;
+				break;
+
+			case saved:
+				//no hago nada hasta que se apague la placa
+				if (LED)
+					LED_OFF;
+				else
+					LED_ON;
+
+				Wait_ms(100);
+				break;
+
+			case saved_error:
+				//no hago nada hasta que se apague la placa
+				if (LED)
+					LED_OFF;
+				else
+					LED_ON;
+
+				Wait_ms(400);
+				break;
+
+			default:
+				main_state = main_init;
+				break;
+		}
 
 
 
-		//Cuestiones generales que no tienen que ver con el modo de stop
-// #ifdef RELAY_ALWAYS_ON
-//
-//
-// #elif defined RELAY_OFF_WITH_DOOR_OPEN
-//
-//
-// #else
-// #error "Falta elegir Type of Program hard.h"
-// #endif
-
-		//Cuestiones generales a todos los programas
-		// UpdatePote();
-		// UpdateTemp();
+		//Cuestiones generales que no tienen que ver con el loop principal
+		// UpdateSwitch();
 
 	}	//End of while 1
-
-
 	//--- End of New Main loop ---//
-
-//    while (1)
-//    {
-//    	if (SYNC)
-//    		SYNC_OFF;
-//    	else
-//    		SYNC_ON;
-//
-//    	Wait_ms (10);
-//    }
-
 	return 0;
 }
 
@@ -174,6 +319,9 @@ void TimingDelay_Decrement(void)
 	if (wait_ms_var)
 		wait_ms_var--;
 
+	if (timer_standby)
+		timer_standby--;
+
 	//filtro de ruido para el sw
 	if (SW1)
 	{
@@ -187,7 +335,7 @@ void TimingDelay_Decrement(void)
 		led_timer--;
 
 	//cuenta de a 1 minuto
-	if (secs > 9999)			//pasaron 1 segundo
+	if (secs > 999)			//pasaron 1 segundo
 	{
 		secs = 0;
 
